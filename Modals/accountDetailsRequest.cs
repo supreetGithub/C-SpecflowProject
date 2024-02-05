@@ -6,8 +6,11 @@ using System.Threading.Tasks;
 
 namespace BankingTransactionProject.Modals
 {
-    public class AccountDetails
+    public class accountDetailsRequest
     {
+
+ 
+
         public string UserId { get; set; }
         public string AccountType { get; set; }
 
@@ -16,6 +19,9 @@ namespace BankingTransactionProject.Modals
         public string AccountHolder { get; set; }
 
         public string AccountNumber{ get; set; }
+
+
+        public int withdrawlBalance { get; set; }
 
         public int Amount { get; set; }
     }

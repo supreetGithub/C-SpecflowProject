@@ -5,8 +5,6 @@ using BankingTransactionProject.Utilities;
 using RestSharp;
 using NUnit.Framework;
 using BankingTransactionProject.Modals;
-using Newtonsoft.Json.Linq;
-using RestSharp.Serialization.Json;
 
 namespace BankingTransactionProject.StepDefinitions
 {
@@ -15,13 +13,17 @@ namespace BankingTransactionProject.StepDefinitions
     {
 
         private readonly ApiUtilities apiUtilities;
-        private AccountDetails accountDetails;
+        private accountDetailsRequest accountDetails;
         private IRestResponse response;
+        private int initialBalance;
+        private int withdrawlBalance;
+        private int finalBalance;
+        private string accountId;
 
         public BankingSystemAPIStepDefinitions()
         {
             apiUtilities = new ApiUtilities("http://localhost:3000/");
-            accountDetails = new AccountDetails();
+            accountDetails = new accountDetailsRequest();
             response = new RestResponse();
         }
 
@@ -32,121 +34,172 @@ namespace BankingTransactionProject.StepDefinitions
             apiUtilities.SetBaseEndPoint(endpoint);
         }
 
-        [When(@"I send a POST request to create an account for the user with ID ""(.*)"" and account type ""(.*)""")]
-        public void WhenISendAPOSTRequestToCreateAnAccountForTheUserWithIDAndAccountType(string userID, string accountType)
-        {
-            var accountDetails = new AccountDetails { UserId = userID, AccountType = accountType };
-            string payload = Newtonsoft.Json.JsonConvert.SerializeObject(accountDetails);
-            response = apiUtilities.SendPostRequest("posts", payload);
-        }
-
-        [When(@"I send a POST request to create an account for the account with number ""(.*)"" and account type ""(.*)""")]
-        public void WhenISendAPOSTRequestToCreateAnAccountForAccountWithNumber(string number, string accountType)
-        {
-            var accountDetails = new AccountDetails { AccountNumber = number, AccountType = accountType };
-            string payload = Newtonsoft.Json.JsonConvert.SerializeObject(accountDetails);
-            response = apiUtilities.SendPostRequest("posts", payload);
-        }
-
-        [When(@"I update the amount in the account as (.*) for account with number ""(.*)""")]
-        public void updateAmountInAccount(int amount, string accountNumber)
-        {
-            var accountDetails = new AccountDetails { Amount = amount, AccountNumber = accountNumber };
-            string payload = JsonConvert.SerializeObject(accountDetails);
-            response = apiUtilities.depositAmount(payload);
-        }
-
-
-        [Then(@"I verify the amount (.*) is (.*) for account number ""(.*)""")]
-        public void ThenIVerifyTheAmountIsUpdatedForAccountNumber(int amount, string state, string accountNumber)
-        {
-            if (state.Equals("updated"))
-            {
-                response = apiUtilities.getAccountDetails(accountNumber);
-                // Assert.AreEqual(amount, response.accountNumber);
-            }
-            else
-            {
-
-            }
-        }
-
-
-
-        [When(@"I send a GET request to retrieve accounts for the user with ID ""(.*)""")]
-        public void WhenISendAGETRequestToRetrieveAccountsForTheUserWithID(string userID)
-        {
-            response = apiUtilities.SendGetRequest($"posts?userId={userID}");
-
-        }
-
-        [Then(@"the response status code should be (.*)")]
-        public void ThenTheResponseStatusCodeShouldBe(int expectedStatusCode)
-        {
-            Assert.AreEqual(expectedStatusCode, (int)response.StatusCode);
-        }
-
-        [Then(@"the response should contain both accounts with types ""(.*)"" and ""(.*)"" for userID ""(.*)""")]
-        public void ThenTheResponseShouldContainBothAccountsWithTypesAndForUserID(string accountType1, string accountType2, string userID)
-        {
-            JArray accounts = JArray.Parse(response.Content);
-            Assert.IsTrue(accounts.Any(a => a["accountType"].ToString() == accountType1), "Account is creared successfully");
-            Assert.IsTrue(accounts.Any(a => a["accountType"].ToString() == accountType2), "Account is creared successfully");
-
-        }
-
-        [When(@"I send a GET request to retrieve accounts for the user with account type ""(.*)""")]
-        public void WhenISendAGETRequestToRetrieveAccountsForTheUserWithAccountType(string accountType)
-        {
-            response = apiUtilities.SendGetRequest($"posts?AccountType={accountType}");
-        }
-
-        [When(@"I send a DELETE request to delete an account for the user with account type ""(.*)""")]
-        public void WhenISendAFDeleteRequestTodeleteanAccountsForTheUserWithAccountType(string accountType)
-        {
-            response = apiUtilities.SendGetRequest($"posts?AccountType={accountType}");
-            JArray users = JArray.Parse(response.Content);
-            foreach (JObject item in users)
-            {
-                string id = (string)item["id"];
-                response = apiUtilities.SendDeleteRequest($"posts/{id}");
-            }
-
-        }
-
-        [When(@"I send a DELETE request to delete an account for invalid user with ID ""(.*)""")]
-        public void WhenISendAFDeleteRequestTodeleteanAccountsForInvalidUser(string userID)
-        {
-            response = apiUtilities.SendDeleteRequest($"posts/{userID}");
-
-        }
         [When(@"I create an account with details as (.*), ""(.*)"", ""(.*)""")]
         public void WhenICreateAnAccountWithDetailsAs(int accountBalance, string accountHolder, string accountType)
         {
-            var accountDetails = new AccountDetails { AccountBalance = accountBalance, AccountHolder = accountHolder, AccountType = accountType };
+            var accountDetails = new accountDetailsRequest { AccountBalance = accountBalance, AccountHolder = accountHolder, AccountType = accountType };
             string payload = JsonConvert.SerializeObject(accountDetails);
             response = apiUtilities.createAccount(payload);
-            //  response = apiUtilities.SendPostRequest("posts", payload);
+            accountDetailsResponse content = apiUtilities.GetContent<accountDetailsResponse>(response);
+            accountId = content.AccountID;
         }
 
         [Then(@"I verify the account (.*) for (.*), ""(.*)"", ""(.*)""")]
         public void ThenIVerifyTheAccountCreation(String state, int accountBalance, string accountHolder, string accountType)
         {
-           
             if (state == "created")
             {
-                response = apiUtilities.getAccount($"posts?accountHolder={accountHolder}");
+                response = apiUtilities.getAccountDetails(accountId);
                 Assert.AreEqual(200, (int)response.StatusCode);
-                var deserialize = new JsonDeserializer();
-                var output = deserialize.Deserialize<Dictionary<string, string>>(response);
-                var result = output["accountBalance"];
-                Assert.That(result, Is.EqualTo(accountBalance));
+                accountDetailsResponse content = apiUtilities.GetContent<accountDetailsResponse>(response);
+                Assert.Equals(content.AccountBalance, accountBalance);
+                Assert.Equals(content.AccountHolder, accountHolder);
+                Assert.Equals(content.AccountType, accountType);
             }
             else
             {
                 Assert.AreEqual(400, (int)response.StatusCode);
 
             }
+        }
+
+        [When(@"I delete the account created for (.*)")]
+        public void WhenIDeleteTheAccountCreatedFor(string accountType)
+        {
+            if (accountType.Equals("valid account"))
+            {
+                var accountDetails = new accountDetailsRequest { AccountType = accountType };
+                string payload = JsonConvert.SerializeObject(accountDetails);
+                response = apiUtilities.deleteAccount(payload);
+                accountDetailsResponse content = apiUtilities.GetContent<accountDetailsResponse>(response);
+                accountId = content.AccountID;
+            }
+            else
+            {
+                var accountDetails = new accountDetailsRequest { AccountType = accountType };
+                string payload = JsonConvert.SerializeObject(accountDetails);
+                response = apiUtilities.deleteAccount(payload);
+                accountDetailsResponse content = apiUtilities.GetContent<accountDetailsResponse>(response);
+                accountId = content.AccountID + "647";
+            }
+
+        }
+
+        [Then(@"the account (.*) deleted successfully")]
+        public void ThenTheAccountShouldBeDeletedSuccessfullyForAccountType(string state)
+        {
+            response = apiUtilities.getAccountDetails(accountId);
+            if (state.Equals("is"))
+            {
+                if ((int)response.StatusCode == 400)
+                {
+                    Console.WriteLine("Account deleted successfully");
+                }
+                else
+                {
+                    throw new Exception("Account not deleted successfully");
+
+                }
+            }
+            else
+            {
+                Assert.Equals((int)response.StatusCode, 200);
+            }
+        }
+   
+        [When(@"I withdraw \$(.*) in a single transaction")]
+        public void WhenIWithdeawInASingleTransaction(int amount)
+        {
+            withdrawlBalance = amount;
+            var amountToWithdraw = new accountDetailsRequest { withdrawlBalance = withdrawlBalance };
+            string payload = JsonConvert.SerializeObject(amountToWithdraw);
+            response = apiUtilities.withdrawAmount(payload);
+        }
+
+
+        [Then(@"the remaining balance in ""(.*)"" is now \$(.*)")]
+        public void ThenTheRemainingBalanceInIsNow(string accountHolder, int amount)
+        {
+            accountDetailsResponse getContent = apiUtilities.GetContent<accountDetailsResponse>(response);
+            finalBalance = getContent.AccountBalance;
+            Assert.Equals(initialBalance-finalBalance,amount); 
+        }
+
+        [Then(@"the withdrawl should be (.*) and balance (.*) \$(.*)")]
+        public void ThenTheWithdrawlShouldBeSuccessfulAndBalanceIsNot(string state, string valid, int balance)
+        {
+            initialBalance = balance;
+            accountDetailsResponse withdrawlContent = apiUtilities.GetContent<accountDetailsResponse>(response);
+            var accountNumber = withdrawlContent.AccountNumber;
+            response = apiUtilities.getAccountDetails(accountNumber);
+            accountDetailsResponse getContent = apiUtilities.GetContent<accountDetailsResponse>(response);
+            finalBalance = getContent.AccountBalance;
+
+            if (state.Equals("successful") && valid.Equals("is"))
+            {
+                if (initialBalance != finalBalance)
+                {
+                    Console.WriteLine("Withdrawl is successful");
+                }
+                else
+                {
+                    throw new Exception("Withdrawl failed!!!");
+                }
+            }
+            else
+            {
+                if (initialBalance == finalBalance)
+                {
+                    Console.WriteLine("Decline is successful");
+                }
+                else
+                {
+                    throw new Exception("Decline failed!!!");
+                }
+            }
+        }
+
+
+        [Then(@"I deposit \$(.*) to the newly created account")]
+        public void ThenIDepositToTheNewlyCreatedAccount(int amount)
+        {
+            var depositAmount = new accountDetailsRequest { Amount = amount};
+            string payload = JsonConvert.SerializeObject(depositAmount);
+            response = apiUtilities.depositAmount(payload);
+        }
+
+        [Then(@"I verify the balance is updated with the new amount")]
+        public void ThenIVerifyTheBalanceIsUpdatedWithTheNewAmount()
+        {
+            accountDetailsResponse updatedAmount = apiUtilities.GetContent<accountDetailsResponse>(response);
+            var balance = updatedAmount.AccountBalance;
+            Assert.AreNotEqual(initialBalance, balance);
+
+        }
+
+
+        [Then(@"I verify the balance is not updated with the new amount")]
+        public void ThenIVerifyTheBalanceIsNotUpdatedWithTheNewAmount()
+        {
+            response = apiUtilities.getAccountDetails(accountId);
+            accountDetailsResponse updatedAmount = apiUtilities.GetContent<accountDetailsResponse>(response);
+            var balance = updatedAmount.AccountBalance;
+            Assert.AreEqual(initialBalance, balance);
+        }
+
+        [Then(@"the account is created for both accounts (.*) and (.*)")]
+        public void ThenTheAccountIsCreatedForBothAccountsSavingsAndCurrent(string accountType1, string accountType2)
+        {
+            response = apiUtilities.getAccountDetails(accountId);
+            accountDetailsResponse getContent = apiUtilities.GetContent<accountDetailsResponse>(response);
+            Assert.AreEqual(getContent.AccountType, accountType1);
+            Assert.AreEqual(getContent.AccountType, accountType2);
+        }
+
+        [Then(@"the response status code should be (.*)")]
+        public void ThenTheResponseStatusCodeShouldBe(int expectedStatusCode)
+        {
+            Assert.AreEqual(expectedStatusCode, (int)response.StatusCode);
         }
     }
 }

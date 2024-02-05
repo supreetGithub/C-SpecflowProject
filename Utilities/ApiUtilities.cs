@@ -9,61 +9,69 @@ using RestSharp;
 
 namespace BankingTransactionProject.Utilities
 {
-    public class ApiUtilities
+    public class ApiUtilities : IAPIClient
     {
-        public RestClient client;
-       public ApiUtilities(String baseUrl)
-        {
-            client = new RestClient(baseUrl);
+       readonly RestClient restClient;
+        public ApiUtilities(string baseUrl) {
+
+            restClient = new RestClient(baseUrl);
+
         }
 
         public void SetBaseEndPoint(string baseUrl)
         {
-          client.BaseUrl = new Uri(baseUrl);
+            restClient.BaseUrl = new Uri(baseUrl);
         }
-
-        public IRestResponse SendPostRequest(string endpoint, string payload) { 
-            var request = new RestRequest(endpoint,Method.POST);
-            request.AddHeader("Content-Type", "application/json");
-            request.AddParameter("application/json",payload,ParameterType.RequestBody);
-            return client.Execute(request);
-        }
-        public IRestResponse SendGetRequest(string endpoint)
+        public IRestResponse createAccount<T>(T payload) where T : class
         {
-            var request = new RestRequest(endpoint,Method.GET);
-            return client.Execute(request);
+            var request = new RestRequest(Endpoints.CREATE_USER, Method.POST);
+            request.AddBody(payload);
+            return restClient.Execute<RestResponse>(request);
         }
 
-        public IRestResponse SendDeleteRequest(string endpoint)
+        public IRestResponse deleteAccount<T>(T payload) where T : class
         {
-            var request = new RestRequest(endpoint, Method.DELETE);
-            return client.Execute(request);
+            var request = new RestRequest(Endpoints.DELETE_USER, Method.DELETE);
+            request.AddBody(payload);
+            return restClient.Execute<RestResponse>(request);
         }
 
-        public IRestResponse createAccount (String payload) {
-            var request = new RestRequest("posts", Method.POST);
-            request.AddHeader("Content-Type", "application/json");
-            request.AddParameter("application/json", payload, ParameterType.RequestBody);
-            return client.Execute(request);
-        }
-
-        public IRestResponse depositAmount(String payload)
+        public IRestResponse depositAmount<T>(T payload) where T : class
         {
-            var request = new RestRequest("posts", Method.PUT);
-            request.AddHeader("Content-Type", "application/json");
-            request.AddParameter("application/json", payload, ParameterType.RequestBody);
-            return client.Execute(request);
+            var request = new RestRequest(Endpoints.DEPOSIT_AMOUNT, Method.POST);
+            request.AddBody(payload);
+            return restClient.Execute<RestResponse>(request);
         }
 
-        public IRestResponse getAccount(string endpoint)
-        {
-            var request = new RestRequest(endpoint, Method.GET);
-            return client.Execute(request);
-        }
         public IRestResponse getAccountDetails(string accountNumber)
         {
-            var request = new RestRequest(accountNumber , Method.GET);
-            return client.Execute(request);
+            var request = new RestRequest(Endpoints.GET_ACCOUNT_DETAILS, Method.GET);
+           // request.AddUrlSegment(accountNumber);
+            return restClient.Execute<RestResponse>(request);
+        }
+
+        public IRestResponse withdrawAmount<T>(T payload) where T : class
+        {
+            var request = new RestRequest(Endpoints.WITHDRAW_AMOUNT, Method.POST);
+            request.AddBody(payload);
+            return restClient.Execute<RestResponse>(request);
+        }
+
+        public DTO GetContent<DTO>(IRestResponse response)
+        {
+            var content = response.Content;
+            DTO dto = JsonConvert.DeserializeObject<DTO>(response.Content);
+            return dto;
+        }
+
+        public IRestResponse getAccountDetails<T>(string accountNumber) where T : class
+        {
+            throw new NotImplementedException();
+        }
+
+        public IRestResponse withdrawAmmount<T>(T payload) where T : class
+        {
+            throw new NotImplementedException();
         }
     }
 }
