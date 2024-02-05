@@ -40,5 +40,12 @@ The Framework built with below main packages
 ●	 Deposit Negative Amount
 ●	Create Account with valid data
 ●	Create Account with invalid data
-●	Withdraw Amount
+●	 Withdraw any valid Amount
+●	User can withdraw up tp 90% of their  total balance in single transaction
+●	 User cannot withdraw up tp 90% of their  total balance in single transaction
+
+
+
+
+
 
